@@ -1,0 +1,20 @@
+[package]
+name = "warrenvpnd"
+description = "WarrenVPN privileged daemon: a polkit-gated D-Bus system service that installs/classifies OpenVPN configurations into root-owned shadow copies and launches OpenVPN under its control."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "warrenvpnd"
+path = "src/main.rs"
+
+[dependencies]
+warrenvpn-core = { path = "../warrenvpn-core" }
+warrenvpn-common = { path = "../warrenvpn-common" }
+ovpn-config = { path = "../ovpn-config" }
+zbus = { version = "5", default-features = false, features = ["tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "process", "io-util", "sync", "time", "fs", "signal"] }
+futures-util = "0.3"

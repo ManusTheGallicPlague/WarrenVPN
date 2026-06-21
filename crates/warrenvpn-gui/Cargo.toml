@@ -1,0 +1,21 @@
+[package]
+name = "warrenvpn-gui"
+description = "WarrenVPN desktop GUI (GTK4 + libadwaita): import OpenVPN configurations, connect/disconnect, and see live connection state. Talks to the warrenvpnd daemon over D-Bus."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "warrenvpn"
+path = "src/main.rs"
+
+[dependencies]
+warrenvpn-common = { path = "../warrenvpn-common" }
+gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }
+adw = { package = "libadwaita", version = "0.7", features = ["v1_5"] }
+zbus = "5"
+ksni = "0.2"
+async-channel = "2"
+libsecret = "0.7"

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=WarrenVPN
+GenericName=VPN Client
+Comment=Connect to OpenVPN VPNs
+Exec=warrenvpn
+Icon=net.warrenvpn.WarrenVPN
+Terminal=false
+Categories=Network;Security;GTK;
+Keywords=VPN;OpenVPN;tunnel;
+StartupNotify=true
+StartupWMClass=net.warrenvpn.WarrenVPN

@@ -1,0 +1,25 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ovpn-config",
+    "crates/warrenvpn-common",
+    "crates/warrenvpn-core",
+    "crates/warrenvpnd",
+    "crates/warrenvpn-gui",
+    "crates/warrenvpn-cli",
+]
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.80"
+license = "GPL-2.0-only"
+# The product identity (app-id, daemon name, D-Bus names, polkit actions,
+# filesystem paths) lives in a single source of truth: crates/warrenvpn-common.
+authors = ["WarrenVPN project"]
+repository = "https://github.com/ManusTheGallicPlague/WarrenVPN"
+
+[profile.release]
+# Security-sensitive crate (it gates whether a config runs OpenVPN as root).
+# Keep overflow checks on even in release; the cost is negligible for config sizes.
+overflow-checks = true

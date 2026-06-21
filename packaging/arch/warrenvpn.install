@@ -1,0 +1,43 @@
+post_install() {
+    # Create the 'warrenvpn' system group and the persistent state layout.
+    # Use absolute paths so resolution does not depend on the current directory.
+    systemd-sysusers /usr/lib/sysusers.d/warrenvpn.conf >/dev/null 2>&1 || true
+    systemd-tmpfiles --create /usr/lib/tmpfiles.d/warrenvpn.conf >/dev/null 2>&1 || true
+    # Pick up the new system D-Bus policy/service, polkit action and unit.
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    # Enable the kill-switch recovery safety net (idempotent, runs at boot).
+    systemctl enable warrenvpn-recover.service >/dev/null 2>&1 || true
+    cat <<'EOF'
+WarrenVPN installed.
+  * The privileged service (warrenvpnd) is D-Bus-activated on demand; no manual
+    start is required.
+  * Launch the GUI with `warrenvpn` or from your applications menu.
+  * Connecting a VPN needs an active local session (no admin prompt); installing
+    or removing configurations requires administrator authentication via polkit.
+EOF
+}
+
+post_upgrade() {
+    systemd-sysusers /usr/lib/sysusers.d/warrenvpn.conf >/dev/null 2>&1 || true
+    systemd-tmpfiles --create /usr/lib/tmpfiles.d/warrenvpn.conf >/dev/null 2>&1 || true
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    # NB: deliberately NOT restarting warrenvpnd here. OpenVPN runs as a child of the
+    # daemon, so a restart would tear down every live tunnel (and could strand a
+    # kill-switch). The next connect re-activates the daemon via D-Bus with the new
+    # binary; active tunnels keep running until then.
+}
+
+pre_remove() {
+    systemctl disable --now warrenvpn-recover.service >/dev/null 2>&1 || true
+    # Tear down any active kill-switch so removal can't strand the machine.
+    nft -f /usr/lib/warrenvpn/recover.nft >/dev/null 2>&1 || true
+}
+
+post_remove() {
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    cat <<'EOF'
+WarrenVPN removed. Per-user configurations under ~/.local/share/warrenvpn and saved
+credentials in your keyring are left intact; remove them manually if desired.
+System state under /var/lib/warrenvpn has been removed by the package manager.
+EOF
+}

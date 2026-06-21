@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+
+<!--
+  WarrenVPN session-bus automation contract (served by the unprivileged GUI agent on
+  the session bus name net.warrenvpn.WarrenVPN, the GApplication id).
+
+  This is the ONE automation surface for the whole product: the `warrenvpn` CLI is a
+  thin client of it. It exposes the full set of scriptable verbs (Connect,
+  Disconnect, ConnectAll, DisconnectAll, DisconnectAllBut, Quit, SaveUsername,
+  SavePassword, plus the configuration-change notifications) so the GUI, the CLI and
+  external automation all share one command vocabulary.
+
+  Configurations are addressed by their display name, resolved internally to the
+  immutable config id.
+-->
+<node>
+  <interface name="net.warrenvpn.WarrenVPN.Control">
+
+    <method name="Connect">
+      <arg name="name" type="s" direction="in"/>
+    </method>
+    <method name="Disconnect">
+      <arg name="name" type="s" direction="in"/>
+    </method>
+    <method name="ConnectAll"/>
+    <method name="DisconnectAll"/>
+    <!-- Disconnect everything except the named connection. -->
+    <method name="DisconnectAllBut">
+      <arg name="name" type="s" direction="in"/>
+    </method>
+
+    <!-- Current state of a connection (OpenVPN management state value, or
+         "EXITING"/"" if not connected). -->
+    <method name="GetState">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="state" type="s" direction="out"/>
+    </method>
+    <!-- Names of all known configurations. -->
+    <method name="ListConfigurations">
+      <arg name="names" type="as" direction="out"/>
+    </method>
+
+    <!-- Save / forget credentials in the Secret Service for a configuration. -->
+    <method name="SaveUsername">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="username" type="s" direction="in"/>
+    </method>
+    <method name="SavePassword">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="password" type="s" direction="in"/>
+    </method>
+    <method name="ForgetCredentials">
+      <arg name="name" type="s" direction="in"/>
+    </method>
+
+    <!-- Tell the running app a configuration file changed on disk, or that
+         configurations were added/removed, so it re-reads them. -->
+    <method name="ConfigurationFileChanged">
+      <arg name="name" type="s" direction="in"/>
+    </method>
+    <method name="ConfigurationsAddedOrRemoved"/>
+
+    <!-- Quit the GUI agent. By design this does NOT disconnect active tunnels
+         (they keep running and are re-adopted on relaunch). -->
+    <method name="Quit"/>
+
+    <!-- Mirrors of the per-connection signals, re-emitted on the session bus for
+         automation clients that don't want to follow system-bus connection
+         objects. -->
+    <signal name="StateChanged">
+      <arg name="name" type="s"/>
+      <arg name="state" type="s"/>
+    </signal>
+  </interface>
+</node>

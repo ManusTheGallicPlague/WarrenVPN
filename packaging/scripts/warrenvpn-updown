@@ -1,0 +1,40 @@
+#!/bin/sh
+# WarrenVPN trusted up/down helper.
+#
+# OpenVPN runs this (as root) on tunnel up/down. It does NOT touch the system
+# itself — it only records the tunnel device and the DNS options OpenVPN pushed,
+# to a file the daemon reads and then applies via systemd-resolved. Keeping the
+# system-changing logic in the daemon (not here) keeps the privileged surface in
+# one auditable place. This script is shipped and root-owned; it is never a
+# user-supplied script.
+#
+# The daemon passes WARRENVPN_ENVFILE via --setenv. OpenVPN sets script_type, dev and
+# foreign_option_* in the environment.
+set -eu
+
+: "${WARRENVPN_ENVFILE:?warrenvpn-updown: WARRENVPN_ENVFILE not set}"
+
+# Strip CR/LF so one (server-pushed) value can never become multiple lines and
+# inject another key (e.g. a fake trusted_ip) into the env file.
+clean() { printf '%s' "$1" | tr -d '\r\n'; }
+
+tmp="${WARRENVPN_ENVFILE}.tmp.$$"
+{
+    echo "script_type=$(clean "${script_type:-}")"
+    echo "dev=$(clean "${dev:-}")"
+    # The actual server endpoint OpenVPN connected to (for the kill-switch rule).
+    echo "trusted_ip=$(clean "${trusted_ip:-}")"
+    echo "trusted_ip6=$(clean "${trusted_ip6:-}")"
+    echo "trusted_port=$(clean "${trusted_port:-}")"
+    echo "proto=$(clean "${proto:-}")"
+    i=1
+    while :; do
+        eval "v=\${foreign_option_${i}:-}"
+        [ -n "$v" ] || break
+        echo "foreign_option_${i}=$(clean "$v")"
+        i=$((i + 1))
+    done
+} >"$tmp"
+mv -f "$tmp" "${WARRENVPN_ENVFILE}"
+
+exit 0

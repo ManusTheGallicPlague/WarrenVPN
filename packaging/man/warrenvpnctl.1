@@ -1,0 +1,39 @@
+.TH WARRENVPNCTL 1 "2026" "WarrenVPN" "User Commands"
+.SH NAME
+warrenvpnctl \- command-line control for the WarrenVPN VPN daemon
+.SH SYNOPSIS
+.B warrenvpnctl
+.I command
+[\fIarguments\fR]
+.SH DESCRIPTION
+.B warrenvpnctl
+controls the WarrenVPN VPN daemon (\fBwarrenvpnd\fR) over D-Bus. It needs no GUI and is
+suitable for headless or scripted use. With \fBWARRENVPN_BUS=session\fR it talks to a
+daemon on the session bus (development).
+.SH COMMANDS
+.TP
+.B list
+List installed configurations with their current state and safe/unsafe status.
+.TP
+.B status
+Show active connections and their state.
+.TP
+.B import \fIfile.ovpn\fR [\fIname\fR]
+Import an OpenVPN configuration (the file is read locally and its contents sent to
+the daemon, which classifies and stores a root-owned shadow copy).
+.TP
+.B connect \fIname|id\fR [\fB--killswitch\fR]
+Start a connection and follow it, answering credential and static-challenge prompts
+on the terminal. With \fB--killswitch\fR, block all non-tunnel egress while connected.
+.TP
+.B disconnect \fIname|id\fR
+Disconnect a connection.
+.TP
+.B recover
+Tear down the kill-switch and restore normal network connectivity.
+.SH EXIT STATUS
+0 on success, non-zero on error or a failed connection.
+.SH SEE ALSO
+.BR warrenvpn (1),
+.BR warrenvpnd (8),
+.BR openvpn (8)

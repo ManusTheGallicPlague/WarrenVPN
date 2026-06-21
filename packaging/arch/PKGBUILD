@@ -1,0 +1,79 @@
+# Maintainer: WarrenVPN project
+#
+# Local/dev PKGBUILD: builds the workspace in place and installs the daemon, GUI,
+# and all system integration (D-Bus, polkit, systemd, sysusers, tmpfiles, .desktop).
+# Run `makepkg -si` from this directory (packaging/arch) inside a checkout of the
+# repository. The AUR/release PKGBUILD will fetch a versioned source instead; set
+# WARRENVPN_REPO to override the source tree location.
+
+pkgname=warrenvpn
+pkgver=0.0.1
+pkgrel=1
+pkgdesc="OpenVPN GUI for the Linux desktop, with a polkit-gated privileged daemon"
+arch=('x86_64' 'aarch64')
+url="https://github.com/ManusTheGallicPlague/WarrenVPN"
+license=('GPL-2.0-only')
+depends=('gtk4' 'libadwaita' 'polkit' 'openvpn' 'systemd' 'dbus' 'nftables')
+makedepends=('cargo')
+install="${pkgname}.install"
+source=()
+
+_repo="${WARRENVPN_REPO:-${startdir}/../..}"
+
+build() {
+    cd "$_repo"
+    export CARGO_TARGET_DIR="$_repo/target"
+    cargo build --release --locked -p warrenvpnd -p warrenvpn-gui -p warrenvpn-cli
+}
+
+package() {
+    cd "$_repo"
+    local rel="$_repo/target/release"
+
+    # Binaries: the daemon lives in /usr/lib (not on $PATH), the GUI on $PATH.
+    install -Dm755 "$rel/warrenvpnd" "$pkgdir/usr/lib/warrenvpn/warrenvpnd"
+    install -Dm755 "$rel/warrenvpn" "$pkgdir/usr/bin/warrenvpn"
+    install -Dm755 "$rel/warrenvpnctl" "$pkgdir/usr/bin/warrenvpnctl"
+
+    # Trusted up/down DNS helper (root-owned, invoked by OpenVPN under the daemon).
+    install -Dm755 packaging/scripts/warrenvpn-updown "$pkgdir/usr/lib/warrenvpn/warrenvpn-updown"
+
+    # Kill-switch recovery (clears a stale table at boot).
+    install -Dm644 packaging/nft/recover.nft "$pkgdir/usr/lib/warrenvpn/recover.nft"
+    install -Dm644 packaging/systemd/warrenvpn-recover.service \
+        "$pkgdir/usr/lib/systemd/system/warrenvpn-recover.service"
+
+    # System D-Bus: activation + bus policy.
+    install -Dm644 packaging/dbus/net.warrenvpn.WarrenVPN1.service \
+        "$pkgdir/usr/share/dbus-1/system-services/net.warrenvpn.WarrenVPN1.service"
+    install -Dm644 packaging/dbus/net.warrenvpn.WarrenVPN1.conf \
+        "$pkgdir/usr/share/dbus-1/system.d/net.warrenvpn.WarrenVPN1.conf"
+
+    # polkit actions.
+    install -Dm644 packaging/polkit/net.warrenvpn.policy \
+        "$pkgdir/usr/share/polkit-1/actions/net.warrenvpn.policy"
+
+    # systemd unit, sysusers, tmpfiles.
+    install -Dm644 packaging/systemd/warrenvpnd.service \
+        "$pkgdir/usr/lib/systemd/system/warrenvpnd.service"
+    install -Dm644 packaging/sysusers/warrenvpn.conf \
+        "$pkgdir/usr/lib/sysusers.d/warrenvpn.conf"
+    install -Dm644 packaging/tmpfiles/warrenvpn.conf \
+        "$pkgdir/usr/lib/tmpfiles.d/warrenvpn.conf"
+
+    # Desktop entry + icon + man pages.
+    install -Dm644 packaging/desktop/net.warrenvpn.WarrenVPN.desktop \
+        "$pkgdir/usr/share/applications/net.warrenvpn.WarrenVPN.desktop"
+    install -Dm644 packaging/icons/net.warrenvpn.WarrenVPN.svg \
+        "$pkgdir/usr/share/icons/hicolor/scalable/apps/net.warrenvpn.WarrenVPN.svg"
+    install -Dm644 packaging/man/warrenvpn.1 "$pkgdir/usr/share/man/man1/warrenvpn.1"
+    install -Dm644 packaging/man/warrenvpnctl.1 "$pkgdir/usr/share/man/man1/warrenvpnctl.1"
+    install -Dm644 packaging/man/warrenvpnd.8 "$pkgdir/usr/share/man/man8/warrenvpnd.8"
+
+    # License.
+    install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+
+    # Documentation.
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+    install -Dm644 docs/IPC-CONTRACT.md "$pkgdir/usr/share/doc/$pkgname/IPC-CONTRACT.md"
+}

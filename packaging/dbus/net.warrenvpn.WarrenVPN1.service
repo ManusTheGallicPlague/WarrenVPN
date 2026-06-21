@@ -1,0 +1,7 @@
+# D-Bus system-bus activation for the WarrenVPN daemon.
+# Installed to /usr/share/dbus-1/system-services/.
+[D-BUS Service]
+Name=net.warrenvpn.WarrenVPN1
+Exec=/usr/lib/warrenvpn/warrenvpnd
+User=root
+SystemdService=warrenvpnd.service

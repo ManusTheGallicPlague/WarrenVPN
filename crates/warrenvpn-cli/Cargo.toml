@@ -1,0 +1,17 @@
+[package]
+name = "warrenvpn-cli"
+description = "warrenvpnctl — a command-line client for the WarrenVPN VPN daemon (list, import, connect, disconnect, status, recover). Talks to warrenvpnd over D-Bus; no GUI required."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "warrenvpnctl"
+path = "src/main.rs"
+
+[dependencies]
+warrenvpn-common = { path = "../warrenvpn-common" }
+zbus = "5"
+rpassword = "7"

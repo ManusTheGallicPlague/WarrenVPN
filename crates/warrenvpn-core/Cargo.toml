@@ -1,0 +1,13 @@
+[package]
+name = "warrenvpn-core"
+description = "Transport-agnostic privileged logic for the WarrenVPN daemon: OpenVPN management-protocol parsing, OpenVPN argv construction, and the root-owned configuration shadow store with safe/unsafe classification. Unit-tested without any async or D-Bus so the TCB logic is verifiable in isolation."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[dependencies]
+ovpn-config = { path = "../ovpn-config" }
+warrenvpn-common = { path = "../warrenvpn-common" }
+libc = "0.2"

@@ -1,0 +1,13 @@
+[package]
+name = "warrenvpn-common"
+description = "Single source of truth for WarrenVPN's identity (app-id, D-Bus names, polkit actions, filesystem paths) shared by the daemon, GUI and CLI. Rename the product by editing this one crate."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]

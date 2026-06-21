@@ -1,0 +1,35 @@
+.TH WARRENVPND 8 "2026" "WarrenVPN" "System Administration"
+.SH NAME
+warrenvpnd \- WarrenVPN VPN privileged daemon
+.SH SYNOPSIS
+.B /usr/lib/warrenvpn/warrenvpnd
+.SH DESCRIPTION
+.B warrenvpnd
+is the privileged D\-Bus system service (\fInet.warrenvpn.WarrenVPN1\fR) behind the
+WarrenVPN VPN GUI and \fBwarrenvpnctl\fR(1). It is the product's only security boundary:
+it authorizes every privileged operation with polkit, re\-parses and re\-classifies
+configurations server\-side, stores root\-owned shadow copies, launches and drives
+OpenVPN via its management interface, configures DNS through systemd\-resolved, and
+manages the nftables kill\-switch.
+.PP
+It is D\-Bus\-activated; there is normally no need to start it manually.
+.SH ENVIRONMENT
+.TP
+.B WARRENVPND_BUS=session
+Use the session bus (development).
+.TP
+.B WARRENVPND_STATE_DIR, WARRENVPND_RUNTIME_DIR, WARRENVPND_OPENVPN_PATH, WARRENVPND_UPDOWN_PATH
+Relocate state / select the openvpn and up\-down helper (development/packaging).
+.SH FILES
+.TP
+.I /var/lib/warrenvpn/users/<uid>/
+Root\-owned shadow configurations (the only copy OpenVPN is launched against).
+.TP
+.I /etc/warrenvpn/
+Forced (administrator) preferences and shared configurations.
+.SH SEE ALSO
+.BR warrenvpn (1),
+.BR warrenvpnctl (1),
+.BR polkit (8),
+.BR nft (8),
+.BR resolvectl (1)

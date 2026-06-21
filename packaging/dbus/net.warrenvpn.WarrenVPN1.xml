@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+
+<!--
+  WarrenVPN privileged system-bus contract (owned ONLY by the root daemon, warrenvpnd).
+
+  This is the entire security boundary of the product. Every method that performs
+  a privileged action calls polkit CheckAuthorization with the D-Bus caller as the
+  subject, and RE-VALIDATES everything the caller asserts: it re-parses and
+  re-classifies the configuration's safe/unsafe verdict server-side (never trusting
+  the GUI), re-checks file ownership and signatures, and allowlists every OpenVPN
+  option before exec. The management channel of each OpenVPN process is proxied
+  through the per-connection object below, so the raw management socket is never
+  exposed to unprivileged clients.
+
+  polkit action ids referenced here are defined in
+  packaging/polkit/net.warrenvpn.policy and mirror warrenvpn_common::actions.
+-->
+<node>
+
+  <!-- ===================================================================== -->
+  <!-- Manager: /net/warrenvpn/WarrenVPN1                                       -->
+  <!-- ===================================================================== -->
+  <interface name="net.warrenvpn.WarrenVPN1.Manager">
+
+    <!-- Handshake / staleness detection (replaces the macOS daemon version hash).
+         No authorization required. -->
+    <method name="GetVersion">
+      <arg name="version" type="s" direction="out"/>
+    </method>
+
+    <!-- Runtime capability probe: tun availability, DNS backend (resolved /
+         resolvconf / raw), kill-switch backend, secret-service presence, etc.
+         No authorization required. -->
+    <method name="Probe">
+      <arg name="capabilities" type="a{sv}" direction="out"/>
+    </method>
+
+    <!-- List currently managed connection objects. -->
+    <!-- The caller's live connection object paths. -->
+    <method name="ListConnections">
+      <arg name="connections" type="ao" direction="out"/>
+    </method>
+
+    <!-- The caller's installed configurations as (id, name, safe) tuples. -->
+    <method name="ListConfigs">
+      <arg name="configs" type="a(ssb)" direction="out"/>
+    </method>
+
+    <!-- Start a connection from an installed configuration. Authorized by
+         action 'connect' (allowed for any active local session by default).
+         The daemon launches OpenVPN as a transient systemd scope owning a
+         management socket; the returned object proxies that management channel.
+         options: e.g. openvpn-version, set-dns mode, kill-switch arming. -->
+    <method name="StartConnection">
+      <arg name="config_id" type="s" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="connection" type="o" direction="out"/>
+    </method>
+
+    <!-- ===================================================================== -->
+    <!-- PLANNED (declared as the intended contract; NOT yet implemented in the  -->
+    <!-- MVP daemon, so calling these returns UnknownMethod for now):           -->
+    <!--   AdoptRunningConnections, MoveConfig, SetConnectAtBoot,               -->
+    <!--   SetForcedPreferences, InstallUpdate, ArmKillSwitch.                  -->
+    <!-- See docs/DECISIONS.md "deferred backlog". The rest of this interface   -->
+    <!-- is implemented.                                                        -->
+    <!-- ===================================================================== -->
+
+    <!-- PLANNED: re-attach to OpenVPN already running after a daemon restart. -->
+    <method name="AdoptRunningConnections">
+      <arg name="connections" type="ao" direction="out"/>
+    </method>
+
+    <!-- Install a configuration from its raw CONTENTS. The unprivileged client
+         reads the file as the user and sends the bytes, so the daemon never opens a
+         caller-controlled path as root. scope: "private" | "shared". The daemon
+         tokenizes, normalizes, classifies safe/unsafe SERVER-SIDE, and writes a
+         root-owned shadow copy atomically under the caller's own store. Authorized
+         by 'install-config'. -->
+    <method name="InstallConfig">
+      <arg name="name" type="s" direction="in"/>
+      <arg name="contents" type="s" direction="in"/>
+      <arg name="scope" type="s" direction="in"/>
+      <arg name="options" type="a{sv}" direction="in"/>
+      <arg name="config_id" type="s" direction="out"/>
+    </method>
+
+    <!-- Move a configuration between private/shared scopes (migrates shadow copy,
+         preferences and secrets, keyed on the immutable config id). -->
+    <method name="MoveConfig">
+      <arg name="config_id" type="s" direction="in"/>
+      <arg name="new_scope" type="s" direction="in"/>
+    </method>
+
+    <!-- Remove a configuration and its shadow copy. -->
+    <method name="RemoveConfig">
+      <arg name="config_id" type="s" direction="in"/>
+    </method>
+
+    <!-- Return the configuration with secrets removed (for display/logging),
+         computed from the root-owned shadow copy. -->
+    <method name="GetSanitizedConfig">
+      <arg name="config_id" type="s" direction="in"/>
+      <arg name="contents" type="s" direction="out"/>
+    </method>
+
+    <!-- Configure connect-at-boot (a systemd template unit). Authorized by
+         'connect-at-boot' (admin). Constrained to configs with no saved
+         password / cert-only, per the boot-credential policy. -->
+    <method name="SetConnectAtBoot">
+      <arg name="config_id" type="s" direction="in"/>
+      <arg name="enabled" type="b" direction="in"/>
+    </method>
+
+    <!-- Install forced (admin) preferences into /etc/warrenvpn. Authorized by
+         'manage-daemon'. -->
+    <method name="SetForcedPreferences">
+      <arg name="preferences" type="a{sv}" direction="in"/>
+    </method>
+
+    <!-- Apply a verified self-update (AppImage distribution only; native packages
+         update via the package manager). Authorized by 'update-install'. The
+         daemon re-verifies the ECDSA signature and ownership server-side. -->
+    <method name="InstallUpdate">
+      <arg name="staged_path" type="s" direction="in"/>
+    </method>
+
+    <!-- Arm the kill-switch (nftables egress-only-via-tun). mode: "both" |
+         "unexpected". Authorized by 'killswitch'. -->
+    <method name="ArmKillSwitch">
+      <arg name="config_id" type="s" direction="in"/>
+      <arg name="mode" type="s" direction="in"/>
+    </method>
+
+    <!-- Restore connectivity: flush the kill-switch table and revert DNS/sysctl.
+         Authorized by 'killswitch' (lenient by default). Works even with no active
+         connection (recovery after a crash/reboot). -->
+    <method name="RecoverNetwork"/>
+
+    <signal name="ConnectionAdded">
+      <arg name="connection" type="o"/>
+    </signal>
+    <signal name="ConnectionRemoved">
+      <arg name="connection" type="o"/>
+    </signal>
+    <!-- A managed/forced preference changed, or configurations were added/removed
+         out of band. The GUI refreshes. -->
+    <signal name="ConfigurationsChanged"/>
+
+  </interface>
+
+  <!-- ===================================================================== -->
+  <!-- Connection: /net/warrenvpn/WarrenVPN1/connection/<id>                    -->
+  <!--                                                                       -->
+  <!-- Proxies one OpenVPN process's management channel. Unprivileged clients -->
+  <!-- never touch the raw management socket; they drive it through here.     -->
+  <!-- ===================================================================== -->
+  <interface name="net.warrenvpn.WarrenVPN1.Connection">
+
+    <property name="ConfigId" type="s" access="read"/>
+    <!-- OpenVPN management state machine value: e.g. CONNECTING, WAIT, AUTH,
+         GET_CONFIG, ASSIGN_IP, ADD_ROUTES, CONNECTED, RECONNECTING, EXITING. -->
+    <property name="State" type="s" access="read"/>
+    <property name="StateDetail" type="s" access="read"/>
+    <property name="BytesIn" type="t" access="read"/>
+    <property name="BytesOut" type="t" access="read"/>
+    <property name="ConnectedSince" type="t" access="read"/>
+
+    <!-- Orderly disconnect (management SIGTERM / scope stop), marking the
+         disconnect as expected so the kill-switch / reconnect logic behaves. -->
+    <method name="Disconnect"/>
+
+    <!-- Provide credentials in response to an AuthRequest. kind: "auth-user-pass"
+         | "passphrase" | "dynamic-challenge". fields may carry "username",
+         "password" and "challenge" (used for SCRV1 static challenges and CRV1
+         dynamic challenges). Authorized to the connection owner. -->
+    <method name="ProvideCredentials">
+      <arg name="kind" type="s" direction="in"/>
+      <arg name="fields" type="a{sv}" direction="in"/>
+    </method>
+
+    <!-- Emitted when OpenVPN needs interactive input. kind: "auth-user-pass" |
+         "passphrase" | "dynamic-challenge". 'challenge' carries a static/dynamic
+         challenge prompt (empty if none); 'echo' is whether it may be shown. -->
+    <signal name="AuthRequest">
+      <arg name="kind" type="s"/>
+      <arg name="realm" type="s"/>
+      <arg name="prompt" type="s"/>
+      <arg name="challenge" type="s"/>
+      <arg name="echo" type="b"/>
+    </signal>
+    <!-- The server requires single sign-on: open this http(s) URL in a browser. -->
+    <signal name="WebAuth">
+      <arg name="url" type="s"/>
+    </signal>
+    <signal name="LogLine">
+      <arg name="line" type="s"/>
+    </signal>
+    <!-- NB: ConfigId/State/StateDetail/BytesIn/BytesOut changes are delivered via
+         the standard org.freedesktop.DBus.Properties PropertiesChanged signal. -->
+
+  </interface>
+</node>

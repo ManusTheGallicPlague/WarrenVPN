@@ -1,0 +1,16 @@
+/target
+**/*.rs.bk
+Cargo.lock.orig
+
+# Editor / OS noise
+.DS_Store
+*.swp
+
+# Local artifacts
+/warrenvpn-gui-screenshot.png
+*-screenshot.png
+
+# makepkg build artifacts
+packaging/arch/pkg/
+packaging/arch/src/
+*.pkg.tar.*

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!--
+  WarrenVPN polkit actions. The daemon (warrenvpnd) calls CheckAuthorization with the
+  D-Bus caller as the subject before performing any privileged operation. The
+  default authorizations are:
+
+    * connecting never prompts (allow_active = yes),
+    * managing configs / the daemon / updates requires admin,
+    * restoring connectivity (kill-switch off) is lenient so a user can always
+      recover their own network.
+
+  Defense in depth: the daemon classifies each configuration safe/unsafe itself
+  and authorizes a *connect* with the 'connect' action for safe configs but the
+  stronger 'connect-unsafe' action (admin) for configs containing options that can
+  run code as root. So even if 'install-config' is ever relaxed, an unsafe config
+  can never reach a passwordless root path.
+
+  (A future forced-preference relaxation of 'install-config' for safe configs will
+  be expressed as a separately shipped polkit rule keyed on the verdict the daemon
+  passes in the authorization details; that rule is NOT yet implemented, so install
+  currently always requires admin.)
+
+  Action ids mirror warrenvpn_common::actions and the methods in
+  packaging/dbus/net.warrenvpn.WarrenVPN1.xml.
+-->
+<policyconfig>
+
+  <vendor>WarrenVPN</vendor>
+  <vendor_url>https://github.com/</vendor_url>
+
+  <action id="net.warrenvpn.connect">
+    <description>Connect or disconnect a VPN</description>
+    <message>Authentication is required to control a VPN connection</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+  <action id="net.warrenvpn.connect-unsafe">
+    <description>Connect a VPN whose configuration can run programs as root</description>
+    <message>Authentication is required to connect a VPN that runs scripts or plugins as root</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <action id="net.warrenvpn.install-config">
+    <description>Install, move or remove a VPN configuration</description>
+    <message>Authentication is required to change VPN configurations</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="net.warrenvpn.manage-daemon">
+    <description>Manage the WarrenVPN system service and forced preferences</description>
+    <message>Authentication is required to manage the WarrenVPN service</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <action id="net.warrenvpn.update-install">
+    <description>Install a WarrenVPN update</description>
+    <message>Authentication is required to install an update</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <action id="net.warrenvpn.connect-at-boot">
+    <description>Configure a VPN to connect when the computer starts</description>
+    <message>Authentication is required to connect a VPN at startup</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+
+  <action id="net.warrenvpn.killswitch">
+    <description>Arm or disarm the VPN kill-switch and restore connectivity</description>
+    <message>Authentication is required to change the VPN kill-switch</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+  </action>
+
+</policyconfig>

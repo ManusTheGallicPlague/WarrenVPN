@@ -1,0 +1,70 @@
+# WarrenVPN privileged daemon (warrenvpnd).
+#
+# D-Bus-activated on the system bus: started on the first call to
+# net.warrenvpn.WarrenVPN1. The daemon currently runs persistently once activated
+# (idle-exit is planned, not yet implemented). Transient OpenVPN scopes
+# (warrenvpn-<uuid>.scope) are intended to be independent of this unit's lifetime so
+# the daemon can later stop and be reactivated while tunnels keep running.
+#
+# The daemon runs as root because it must create tun devices, configure routes/DNS
+# and the nftables kill-switch, and exec OpenVPN. It is the product's only security
+# boundary, so it is sandboxed tightly and drops to the caller's uid (via
+# systemd-run) for any user-supplied hook scripts.
+
+[Unit]
+Description=WarrenVPN VPN privileged service
+Documentation=man:warrenvpnd(8)
+# Let the boot-time recovery clear any stale kill-switch before we could re-arm.
+After=warrenvpn-recover.service
+
+[Service]
+Type=dbus
+BusName=net.warrenvpn.WarrenVPN1
+ExecStart=/usr/lib/warrenvpn/warrenvpnd
+# Allow the daemon to exit when idle; D-Bus reactivates it on demand.
+ExecStop=
+Restart=on-failure
+
+# --- Privilege: keep only what is needed to run a VPN ---
+# CAP_NET_ADMIN: tun, routes, nftables. CAP_NET_RAW: low-level sockets.
+# CAP_DAC_OVERRIDE/CAP_CHOWN/CAP_FOWNER: write+chown root-owned shadow copies.
+# CAP_SETUID/CAP_SETGID: let the OpenVPN child honor its own `user`/`group`
+# (privilege-drop to nobody) directives. CAP_KILL: signal OpenVPN.
+# NB: deliberately NO CAP_SYS_ADMIN — tun/routes/nftables need only CAP_NET_ADMIN.
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_SETUID CAP_SETGID CAP_KILL
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+NoNewPrivileges=yes
+
+# --- Filesystem sandbox ---
+ProtectSystem=strict
+ProtectHome=yes
+RuntimeDirectory=warrenvpn
+RuntimeDirectoryMode=0700
+StateDirectory=warrenvpn
+StateDirectoryMode=0750
+ConfigurationDirectory=warrenvpn
+# /etc/warrenvpn holds forced (admin) preferences written via SetForcedPreferences.
+# DNS is managed via the systemd-resolved D-Bus API, so we never write resolv.conf.
+ReadWritePaths=/run/warrenvpn /var/lib/warrenvpn /etc/warrenvpn
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=no
+# tun is in-kernel; we need to load the module on demand.
+ProtectKernelTunables=no
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service @network-io
+SystemCallFilter=~@obsolete @resources
+# Sockets needed: unix (management, D-Bus), netlink (rtnetlink/nftables), inet.
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6 AF_PACKET
+UMask=0077
+
+[Install]
+# Activation is via D-Bus; no WantedBy is required. A timer/socket is not used.

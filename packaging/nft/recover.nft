@@ -1,0 +1,6 @@
+# Idempotently remove the WarrenVPN kill-switch table.
+# Run at boot by warrenvpn-recover.service so a kill-switch left armed by a crash or
+# an unclean shutdown cannot strand the machine without network. The create-then-
+# delete idiom tolerates the table not existing.
+table inet warrenvpn {}
+delete table inet warrenvpn

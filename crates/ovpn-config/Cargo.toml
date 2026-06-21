@@ -1,0 +1,13 @@
+[package]
+name = "ovpn-config"
+description = "Tokenizer, parser and safe/unsafe classifier for OpenVPN configuration files. Part of the trusted computing base: its safe/unsafe verdict decides whether a configuration may launch OpenVPN as root without an administrator prompt."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[dependencies]

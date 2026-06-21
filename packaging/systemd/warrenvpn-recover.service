@@ -1,0 +1,22 @@
+# WarrenVPN kill-switch recovery.
+#
+# If the daemon armed the nftables kill-switch and then crashed (or the machine was
+# powered off uncleanly), the `inet warrenvpn` table can survive a reboot and strand
+# the machine with no network. This oneshot tears it down early at every boot — a
+# no-op when no stale table exists. It is intentionally enabled by the package.
+
+[Unit]
+Description=Clear a stale WarrenVPN VPN kill-switch left by a crash
+DefaultDependencies=no
+After=nftables.service
+Before=network-pre.target
+Wants=network-pre.target
+# Must finish before the daemon could re-arm, so it never clears a fresh kill-switch.
+Before=warrenvpnd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nft -f /usr/lib/warrenvpn/recover.nft
+
+[Install]
+WantedBy=multi-user.target
